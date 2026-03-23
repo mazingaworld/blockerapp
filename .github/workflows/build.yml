@@ -34,7 +34,7 @@ jobs:
         echo "File extension:"
         ls CallBlockerExtension/
 
-    - name: Build app (unsigned)
+    - name: Build app + extension (unsigned)
       run: |
         xcodebuild \
           -project BlockerApp.xcodeproj \
@@ -46,6 +46,7 @@ jobs:
           CODE_SIGN_IDENTITY="" \
           PROVISIONING_PROFILE="" \
           ONLY_ACTIVE_ARCH=NO \
+          SKIP_INSTALL=NO \
           clean build 2>&1 | tee build_output.txt
         if grep -q "BUILD SUCCEEDED" build_output.txt; then
           echo "BUILD SUCCEEDED"
@@ -55,13 +56,41 @@ jobs:
           exit 1
         fi
 
-    - name: Crea file .ipa
+    - name: Verifica output build
       run: |
+        echo "=== Prodotti compilati ==="
+        find ./build/Build/Products -type d -name "*.app" -o -name "*.appex" | sort
+        echo ""
+        echo "=== Contenuto BlockerApp.app ==="
+        ls -lh ./build/Build/Products/Release-iphoneos/BlockerApp.app/ || echo "App non trovata"
+
+    - name: Incorpora extension nell'app e crea .ipa
+      run: |
+        APP=./build/Build/Products/Release-iphoneos/BlockerApp.app
+        EXTENSION=./build/Build/Products/Release-iphoneos/CallBlockerExtension.appex
+
+        mkdir -p "$APP/PlugIns"
+
+        if [ -d "$EXTENSION" ]; then
+          cp -r "$EXTENSION" "$APP/PlugIns/"
+          echo "Extension copiata: $(du -sh $APP/PlugIns/CallBlockerExtension.appex)"
+        else
+          echo "ATTENZIONE: CallBlockerExtension.appex non trovata, cerco altrove..."
+          find ./build -name "*.appex" -type d | head -5
+        fi
+
+        echo ""
+        echo "=== Struttura finale app ==="
+        find "$APP" -type f | sort
+
         mkdir -p ./output/Payload
-        cp -r ./build/Build/Products/Release-iphoneos/BlockerApp.app ./output/Payload/
+        cp -r "$APP" ./output/Payload/
         cd ./output
         zip -r BlockerApp.ipa Payload/
-        echo "File .ipa creato: $(du -sh BlockerApp.ipa)"
+        echo ""
+        echo "=== IPA creato ==="
+        du -sh BlockerApp.ipa
+        unzip -l BlockerApp.ipa | grep -E "appex|\.app" | head -20
 
     - name: Carica .ipa
       uses: actions/upload-artifact@v4
