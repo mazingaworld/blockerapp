@@ -12,7 +12,7 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
         let numbers = loadBlockedNumbers()
 
         if numbers.isEmpty {
-            context.completeRequest(completingAllItems: true)
+            context.completeRequest()
             return
         }
 
@@ -26,7 +26,7 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
             context.addBlockingEntry(withNextSequentialPhoneNumber: number)
         }
 
-        context.completeRequest(completingAllItems: true)
+        context.completeRequest()
     }
 
     // MARK: - Load numbers from shared App Group
